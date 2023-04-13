@@ -1,0 +1,130 @@
+version: "3.7"
+services:
+
+  postgres:
+    container_name: postgres
+    image: postgres
+    command: [ "-c", "shared_buffers=1024MB", "-c", "max_connections=1000" ]
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=rwgksrmgosUJdm
+      - PGDATA=/data/postgres
+    volumes:
+      - /postgres:/data/postgres
+    ports:
+      - "5437:5432"
+    expose:
+      - 5432
+    restart: always
+
+  redis:
+    container_name: redis
+    image: redis:6.0.8-alpine
+    restart: always
+    command:
+      - 'redis-server'
+      - '--requirepass krwmgjreoagjf'
+    environment:
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6378
+      - REDIS_PASS=krwmgjreoagjf
+    ports:
+      - "6378:6379"
+    volumes:
+      - /redis-data:/data/redis
+    expose:
+      - 6379
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.7-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=kmdfaJdfls
+    volumes:
+      - /rabbit-data:/data/rabbitmq
+    ports:
+      - "15671:15672"
+      - "5671:5672"
+    restart: always
+    expose:
+      - 15672
+      - 5672
+
+  fetcher:
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    volumes:
+      - /fetcher-data:/data/fetcher
+    environment:
+      - ACC_MODULE_NAME=fetcher
+      - STAGE=DEV
+      - RMQ_URL=amqp://admin:kmdfaJdfls@rabbitmq:5672/?heartbeat=65000
+      - EXCHANGE=OJT
+      - REDIS_HOST=redis
+      - REDIS_PORT=6378
+      - REDIS_PASS=krwmgjreoagjf
+
+  scraper-ojtwitter:
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+      - fetcher
+    links:
+      - postgres
+      - redis
+      - rabbitmq
+      - fetcher
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    volumes:
+      - /scraper-data:/data/scraper
+    environment:
+      - ACC_MODULE_NAME=scrapers.OJTwitter
+      - STAGE=DEV
+      - PROXIES=http://lum-customer-hl_40ad0788-zone-zone1:5s3a9ga5m0z9@zproxy.lum-superproxy.io:22225
+      - BROWSER_PROXIES=http://zproxy.lum-superproxy.io:22225
+      - PROXIES_LOGIN=lum-customer-hl_40ad0788-zone-zone1
+      - PROXIES_PASSWORD=5s3a9ga5m0z9
+      - DB_CONNECTION_URL=postgresql+psycopg2://admin:rwgksrmgosUJdm@postgres:5432/
+      - RMQ_URL=amqp://admin:kmdfaJdfls@rabbitmq:5672/?heartbeat=65000
+      - EXCHANGE=OJT
+      - REDIS_HOST=redis
+      - REDIS_PORT=6378
+      - REDIS_PASS=krwmgjreoagjf
+
+  scheduler:
+    container_name: scheduler
+    depends_on:
+      - postgres
+      - rabbitmq
+      - scraper-ojtwitter
+    links:
+      - postgres
+      - redis
+      - rabbitmq
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    volumes:
+      - /scheduler-data:/data/scheduler
+    environment:
+      - ACC_MODULE_NAME=scrapers.ScraperOJTScheduler
+      - DB_CONNECTION_URL=postgresql+psycopg2://admin:rwgksrmgosUJdm@postgres:5432/
+      - RMQ_URL=amqp://admin:kmdfaJdfls@rabbitmq:5672/?heartbeat=65000
+      - EXCHANGE=OJT
+      - REDIS_HOST=redis
+      - REDIS_PORT=6378
+      - REDIS_PASS=krwmgjreoagjf
+      - GOOGLE_SHEET_MAIN_ID=1mWgSkaw00VrqzAQGra0vJon4fh9d6iBpIHyLnqdtW1o
+      - TIMES_TO_RUN=["06:00","11:00","12:00","15:00","18:00"]

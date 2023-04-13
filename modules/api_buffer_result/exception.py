@@ -1,0 +1,2 @@
+class InvalidApiResponseHandlerTypeException(Exception):
+    pass

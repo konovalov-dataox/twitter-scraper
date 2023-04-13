@@ -1,0 +1,7 @@
+from settings import *
+
+SERVICE_NAME = RMQ_FETCHER
+PREFETCH_COUNT = int(os.environ.get('PREFETCH_COUNT', 20))
+
+CACHING_PROXY_ADDRESS = \
+    os.environ.get('CACHING_PROXY_ADDRESS', CACHING_PROXY_ADDRESS)

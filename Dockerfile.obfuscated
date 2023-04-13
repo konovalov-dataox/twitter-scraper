@@ -1,0 +1,17 @@
+FROM python:3.7-slim
+RUN apt-get update
+RUN pip install --upgrade pip
+COPY . /tmp
+WORKDIR /tmp
+RUN pip install -r requirements.txt
+# RUN pip install httpx==0.13.3
+RUN pip install pyarmor
+RUN pyarmor register ./pyarmor-regfile-1.zip
+RUN pyarmor obfuscate --recursive --output /app --exclude venv --exclude proxy --advanced 2 .
+WORKDIR /app
+# COPY ./modules/facebook_extractor /app/modules/facebook_extractor
+RUN rm -rf /tmp
+ARG module_name
+ENV ACC_MODULE_NAME $module_name
+RUN python run.py --module $module_name --init 1
+CMD python run.py
